@@ -1,0 +1,17 @@
+{
+  "name": "Oscilloscope 2-Channel",
+  "author": "DevGabrielCoelho",
+  "version": "1.0.0",
+  "description": "2-channel analog oscilloscope for signal visualization",
+  "pins": [
+    { "name": "CH1", "x": 0, "y": 20, "signals": ["analog"] },
+    { "name": "CH2", "x": 0, "y": 40, "signals": ["analog"] },
+    { "name": "GND", "x": 0, "y": 60, "signals": ["power.gnd"] },
+    { "name": "TRIG", "x": 0, "y": 80, "signals": ["digital"] }
+  ],
+  "display": {
+    "width": 320,
+    "height": 240,
+    "background": "#000000"
+  }
+}
