@@ -1,0 +1,19 @@
+wokwi-oscilloscope {
+  display: block;
+  width: 320px;
+  height: 280px;
+  font-family: 'Courier New', monospace;
+  user-select: none;
+}
+
+wokwi-oscilloscope canvas {
+  cursor: crosshair;
+}
+
+wokwi-oscilloscope button:hover {
+  opacity: 0.8;
+}
+
+wokwi-oscilloscope button:active {
+  transform: scale(0.95);
+}
