@@ -1,248 +1,228 @@
-class OscilloscopeElement extends HTMLElement {
-  constructor() {
-    super();
-    this.canvas = null;
-    this.ctx = null;
-    this.ch1Data = [];
-    this.ch2Data = [];
-    this.maxSamples = 300;
-    this.timebase = 1; // ms per division
-    this.voltageScale = 1; // V per division
-    this.triggerLevel = 0;
-    this.running = true;
-    this.gridDivisions = { x: 10, y: 8 };
-  }
+// Wokwi Custom Chip - Oscilloscope 2-Channel
+// API Reference: https://docs.wokwi.com/chips-api/getting-started
 
-  connectedCallback() {
-    this.innerHTML = `
-      <div style="display: flex; flex-direction: column; background: #1a1a1a; border: 2px solid #333; border-radius: 8px; font-family: monospace;">
-        <div style="background: #2a2a2a; padding: 8px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
-          <div style="color: #fff; font-weight: bold; font-size: 14px;">2-CH OSCILLOSCOPE</div>
-          <div style="display: flex; gap: 10px;">
-            <button id="runStop" style="background: #4a4a4a; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">RUN</button>
-            <button id="clear" style="background: #4a4a4a; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">CLEAR</button>
-          </div>
-        </div>
-        
-        <canvas id="scope" width="320" height="200" style="background: #000; border-bottom: 1px solid #444;"></canvas>
-        
-        <div style="padding: 8px; background: #2a2a2a; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
-          <div style="display: flex; gap: 15px;">
-            <div style="color: #ff6b6b;">CH1: ${this.voltageScale}V/div</div>
-            <div style="color: #4ecdc4;">CH2: ${this.voltageScale}V/div</div>
-          </div>
-          <div style="color: #fff;">Time: ${this.timebase}ms/div</div>
-          <div style="color: #ffd93d;">Trig: ${this.triggerLevel}V</div>
-        </div>
-      </div>
-    `;
+const { CoordinateSystem } = require('@wokwi/elements');
 
-    this.canvas = this.querySelector('#scope');
-    this.ctx = this.canvas.getContext('2d');
-    
-    // Configurar eventos dos botões
-    this.querySelector('#runStop').addEventListener('click', () => this.toggleRunStop());
-    this.querySelector('#clear').addEventListener('click', () => this.clearDisplay());
-    
-    // Inicializar display
-    this.drawGrid();
-    this.startAnimation();
-  }
-
-  toggleRunStop() {
-    this.running = !this.running;
-    const btn = this.querySelector('#runStop');
-    btn.textContent = this.running ? 'STOP' : 'RUN';
-    btn.style.background = this.running ? '#e74c3c' : '#27ae60';
-  }
-
-  clearDisplay() {
-    this.ch1Data = [];
-    this.ch2Data = [];
-    this.drawGrid();
-  }
-
-  drawGrid() {
-    const { width, height } = this.canvas;
-    this.ctx.clearRect(0, 0, width, height);
-    
-    // Grid principal
-    this.ctx.strokeStyle = '#333';
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    
-    // Linhas verticais
-    for (let i = 0; i <= this.gridDivisions.x; i++) {
-      const x = (i * width) / this.gridDivisions.x;
-      this.ctx.moveTo(x, 0);
-      this.ctx.lineTo(x, height);
-    }
-    
-    // Linhas horizontais
-    for (let i = 0; i <= this.gridDivisions.y; i++) {
-      const y = (i * height) / this.gridDivisions.y;
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(width, y);
-    }
-    this.ctx.stroke();
-    
-    // Linha central mais destacada
-    this.ctx.strokeStyle = '#555';
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, height / 2);
-    this.ctx.lineTo(width, height / 2);
-    this.ctx.moveTo(width / 2, 0);
-    this.ctx.lineTo(width / 2, height);
-    this.ctx.stroke();
-  }
-
-  addSample(ch1Value, ch2Value) {
-    if (!this.running) return;
-    
-    this.ch1Data.push(ch1Value);
-    this.ch2Data.push(ch2Value);
-    
-    // Manter apenas as últimas amostras
-    if (this.ch1Data.length > this.maxSamples) {
-      this.ch1Data.shift();
-      this.ch2Data.shift();
-    }
-  }
-
-  drawWaveforms() {
-    const { width, height } = this.canvas;
-    const centerY = height / 2;
-    const pixelsPerSample = width / this.maxSamples;
-    
-    // Desenhar CH1 (vermelho)
-    if (this.ch1Data.length > 1) {
-      this.ctx.strokeStyle = '#ff6b6b';
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      
-      for (let i = 0; i < this.ch1Data.length; i++) {
-        const x = i * pixelsPerSample;
-        const y = centerY - (this.ch1Data[i] / this.voltageScale) * (height / this.gridDivisions.y);
-        
-        if (i === 0) {
-          this.ctx.moveTo(x, y);
-        } else {
-          this.ctx.lineTo(x, y);
-        }
-      }
-      this.ctx.stroke();
-    }
-    
-    // Desenhar CH2 (ciano)
-    if (this.ch2Data.length > 1) {
-      this.ctx.strokeStyle = '#4ecdc4';
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      
-      for (let i = 0; i < this.ch2Data.length; i++) {
-        const x = i * pixelsPerSample;
-        const y = centerY - (this.ch2Data[i] / this.voltageScale) * (height / this.gridDivisions.y);
-        
-        if (i === 0) {
-          this.ctx.moveTo(x, y);
-        } else {
-          this.ctx.lineTo(x, y);
-        }
-      }
-      this.ctx.stroke();
-    }
-  }
-
-  startAnimation() {
-    const animate = () => {
-      this.drawGrid();
-      this.drawWaveforms();
-      requestAnimationFrame(animate);
-    };
-    animate();
-  }
-
-  // Métodos para controle externo
-  setTimebase(value) {
-    this.timebase = value;
-    this.updateControls();
-  }
-
-  setVoltageScale(value) {
-    this.voltageScale = value;
-    this.updateControls();
-  }
-
-  setTriggerLevel(value) {
-    this.triggerLevel = value;
-    this.updateControls();
-  }
-
-  updateControls() {
-    const ch1Label = this.querySelector('div[style*="color: #ff6b6b"]');
-    const ch2Label = this.querySelector('div[style*="color: #4ecdc4"]');
-    const timeLabel = this.querySelector('div[style*="Time:"]');
-    const trigLabel = this.querySelector('div[style*="Trig:"]');
-    
-    if (ch1Label) ch1Label.textContent = `CH1: ${this.voltageScale}V/div`;
-    if (ch2Label) ch2Label.textContent = `CH2: ${this.voltageScale}V/div`;
-    if (timeLabel) timeLabel.textContent = `Time: ${this.timebase}ms/div`;
-    if (trigLabel) trigLabel.textContent = `Trig: ${this.triggerLevel}V`;
-  }
-}
-
-// Registrar o elemento customizado
-customElements.define('wokwi-oscilloscope', OscilloscopeElement);
-
-// Classe principal do chip para o Wokwi
 class OscilloscopeChip {
   constructor() {
     this.ch1Pin = null;
     this.ch2Pin = null;
     this.gndPin = null;
     this.trigPin = null;
-    this.element = null;
-    this.sampleInterval = 10; // ms
+    this.ch1Data = [];
+    this.ch2Data = [];
+    this.maxSamples = 300;
+    this.running = true;
+    this.sampleCount = 0;
   }
 
   init() {
-    // Criar elemento visual
-    this.element = document.createElement('wokwi-oscilloscope');
-    
-    // Configurar pinos
-    this.ch1Pin = this.addPin('CH1', 'analog-input');
-    this.ch2Pin = this.addPin('CH2', 'analog-input');
-    this.gndPin = this.addPin('GND', 'ground');
-    this.trigPin = this.addPin('TRIG', 'digital-input');
-    
-    // Iniciar coleta de amostras
-    setInterval(() => {
-      const ch1Value = this.readAnalogPin(this.ch1Pin);
-      const ch2Value = this.readAnalogPin(this.ch2Pin);
-      
-      // Converter para voltagem (assumindo 5V = 1023)
-      const ch1Voltage = (ch1Value / 1023) * 5;
-      const ch2Voltage = (ch2Value / 1023) * 5;
-      
-      this.element.addSample(ch1Voltage, ch2Voltage);
-    }, this.sampleInterval);
-    
-    return this.element;
+    // Configurar pinos conforme definido no .chip.json
+    this.ch1Pin = this.addPin('CH1', 'analog');
+    this.ch2Pin = this.addPin('CH2', 'analog');
+    this.gndPin = this.addPin('GND', 'power');
+    this.trigPin = this.addPin('TRIG', 'digital');
+
+    // Criar display
+    this.display = this.addDisplay({
+      width: 320,
+      height: 240,
+      background: '#000000'
+    });
+
+    // Inicializar canvas
+    this.canvas = this.display.getCanvas();
+    this.ctx = this.canvas.getContext('2d');
+
+    // Desenhar grid inicial
+    this.drawGrid();
+
+    // Configurar timer para amostragem
+    this.timer = this.addTimer(10, this.sampleData.bind(this));
+    this.animTimer = this.addTimer(16, this.animate.bind(this)); // ~60fps
   }
 
-  addPin(name, type) {
-    // Simular API do Wokwi para adicionar pinos
-    return { name, type };
+  sampleData() {
+    if (!this.running) return;
+
+    // Ler valores dos pinos
+    const ch1Raw = this.ch1Pin.analogValue || 0;
+    const ch2Raw = this.ch2Pin.analogValue || 0;
+
+    // Converter para voltagem (0-5V)
+    const ch1Voltage = (ch1Raw / 1023) * 5;
+    const ch2Voltage = (ch2Raw / 1023) * 5;
+
+    // Adicionar às arrays de dados
+    this.ch1Data.push(ch1Voltage);
+    this.ch2Data.push(ch2Voltage);
+
+    // Manter apenas as últimas amostras
+    if (this.ch1Data.length > this.maxSamples) {
+      this.ch1Data.shift();
+      this.ch2Data.shift();
+    }
+
+    this.sampleCount++;
   }
 
-  readAnalogPin(pin) {
-    // Simular leitura analógica (em implementação real seria fornecido pelo Wokwi)
-    return Math.random() * 1023;
+  animate() {
+    this.drawGrid();
+    this.drawWaveforms();
+    this.drawControls();
+  }
+
+  drawGrid() {
+    const { width, height } = this.canvas;
+    this.ctx.clearRect(0, 0, width, height);
+
+    // Grid principal
+    this.ctx.strokeStyle = '#333333';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+
+    // Linhas verticais (10 divisões)
+    for (let i = 0; i <= 10; i++) {
+      const x = (i * width) / 10;
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, height - 40); // Deixar espaço para controles
+    }
+
+    // Linhas horizontais (8 divisões na área do scope)
+    const scopeHeight = height - 40;
+    for (let i = 0; i <= 8; i++) {
+      const y = (i * scopeHeight) / 8;
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(width, y);
+    }
+    this.ctx.stroke();
+
+    // Linhas centrais destacadas
+    this.ctx.strokeStyle = '#555555';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    
+    // Linha horizontal central
+    const centerY = scopeHeight / 2;
+    this.ctx.moveTo(0, centerY);
+    this.ctx.lineTo(width, centerY);
+    
+    // Linha vertical central
+    const centerX = width / 2;
+    this.ctx.moveTo(centerX, 0);
+    this.ctx.lineTo(centerX, scopeHeight);
+    
+    this.ctx.stroke();
+  }
+
+  drawWaveforms() {
+    const { width } = this.canvas;
+    const scopeHeight = 200; // Altura da área do scope
+    const centerY = scopeHeight / 2;
+    const pixelsPerSample = width / this.maxSamples;
+
+    // Desenhar CH1 (vermelho)
+    if (this.ch1Data.length > 1) {
+      this.ctx.strokeStyle = '#ff6b6b';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+
+      for (let i = 0; i < this.ch1Data.length; i++) {
+        const x = i * pixelsPerSample;
+        // Escala: 1V = 25 pixels (scopeHeight/8)
+        const y = centerY - (this.ch1Data[i] * 25);
+
+        if (i === 0) {
+          this.ctx.moveTo(x, y);
+        } else {
+          this.ctx.lineTo(x, y);
+        }
+      }
+      this.ctx.stroke();
+    }
+
+    // Desenhar CH2 (ciano)
+    if (this.ch2Data.length > 1) {
+      this.ctx.strokeStyle = '#4ecdc4';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+
+      for (let i = 0; i < this.ch2Data.length; i++) {
+        const x = i * pixelsPerSample;
+        const y = centerY - (this.ch2Data[i] * 25);
+
+        if (i === 0) {
+          this.ctx.moveTo(x, y);
+        } else {
+          this.ctx.lineTo(x, y);
+        }
+      }
+      this.ctx.stroke();
+    }
+  }
+
+  drawControls() {
+    const { width, height } = this.canvas;
+    const controlY = height - 40;
+
+    // Fundo dos controles
+    this.ctx.fillStyle = '#2a2a2a';
+    this.ctx.fillRect(0, controlY, width, 40);
+
+    // Texto dos controles
+    this.ctx.font = '12px monospace';
+    this.ctx.textAlign = 'left';
+
+    // CH1 label
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillText('CH1: 1V/div', 10, controlY + 15);
+
+    // CH2 label
+    this.ctx.fillStyle = '#4ecdc4';
+    this.ctx.fillText('CH2: 1V/div', 10, controlY + 30);
+
+    // Time base
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillText('Time: 10ms/div', 120, controlY + 15);
+
+    // Status
+    this.ctx.fillStyle = this.running ? '#27ae60' : '#e74c3c';
+    this.ctx.fillText(this.running ? 'RUN' : 'STOP', 120, controlY + 30);
+
+    // Samples count
+    this.ctx.fillStyle = '#ffd93d';
+    this.ctx.textAlign = 'right';
+    this.ctx.fillText(`Samples: ${this.sampleCount}`, width - 10, controlY + 22);
+  }
+
+  // Eventos do mouse para controles
+  onMouseDown(x, y) {
+    const { height } = this.canvas;
+    const controlY = height - 40;
+    
+    if (y > controlY) {
+      // Clique na área de controles - toggle run/stop
+      this.running = !this.running;
+      
+      if (!this.running) {
+        // Parar timer de amostragem
+        this.timer.stop();
+      } else {
+        // Reiniciar timer
+        this.timer.start();
+      }
+    }
+  }
+
+  // Limpar dados quando clicar com botão direito
+  onMouseUp(x, y, button) {
+    if (button === 2) { // Botão direito
+      this.ch1Data = [];
+      this.ch2Data = [];
+      this.sampleCount = 0;
+    }
   }
 }
 
-// Exportar para o Wokwi
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = OscilloscopeChip;
-}
+// Exportar a classe
+module.exports = OscilloscopeChip;
